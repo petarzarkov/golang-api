@@ -1,0 +1,18 @@
+{
+    "go.useLanguageServer": true,
+    "go.toolsEnvVars": {
+        "GOOS": "linux"
+    },
+    "go.toolsGopath": "~/go",
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": [
+        "--fast"
+    ],
+    "go.formatTool": "goimports",
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    }
+} 

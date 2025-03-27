@@ -1,0 +1,24 @@
+services:
+  go-learning-db:
+    image: 'public.ecr.aws/docker/library/postgres:17'
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PORT: ${DB_PORT}
+      PGPORT: ${DB_PORT}
+    networks:
+      - go-learning
+    ports:
+      - ${DB_PORT}:${DB_PORT}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+networks:
+  go-learning:
+    name: go-learning
+    driver: bridge
