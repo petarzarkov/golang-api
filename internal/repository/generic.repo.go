@@ -31,7 +31,7 @@ func (r *GormRepository[T]) Exists(condition map[string]any) (bool, error) {
 
 func (r *GormRepository[T]) GetByID(id string) (*T, error) {
     var entity T
-    if err := r.db.First(&entity, id).Error; err != nil {
+    if err := r.db.First(&entity, "id = ?", id).Error; err != nil {
         return nil, err
     }
     return &entity, nil

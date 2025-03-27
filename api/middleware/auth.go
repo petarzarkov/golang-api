@@ -74,4 +74,4 @@ func Auth(cfg AuthConfig) func(next http.Handler) http.Handler {
 func GetUserID(ctx context.Context) (string, bool) {
 	userID, ok := ctx.Value(UserIDContextKey).(string)
 	return userID, ok
-} 
+}

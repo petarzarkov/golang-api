@@ -1,17 +1,21 @@
 package models
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type User struct {
-	gorm.Model
-	ID        uuid.UUID `gorm:"primarykey;type:uuid;default:gen_random_uuid()"`
-	Email     string    `json:"email" db:"email" validate:"required,email"`
-	Password  string    `json:"-" db:"password_hash"`
-	Name      string    `json:"name" db:"name" validate:"required,min=2,max=100"`
+	ID        uuid.UUID `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
+	Email     string    `json:"email" validate:"required,email"`
+	Password  string    `json:"-"`
+	Name      string    `json:"name" validate:"required,min=2,max=100"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time	`json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deletedAt"`
 }
 
 type CreateUserRequest struct {

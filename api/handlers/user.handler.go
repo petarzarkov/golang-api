@@ -104,10 +104,9 @@ func (h *UserHandler) ListUsers() usecase.Interactor {
 			return status.Wrap(err, status.Internal)
 		}
 	
-		// Convert []*models.User to []models.User
 		users := make([]models.User, len(usersPtr))
 		for i, userPtr := range usersPtr {
-			users[i] = *userPtr // Dereference the pointer to get the value
+			users[i] = *userPtr
 		}
 
 		*output = users
