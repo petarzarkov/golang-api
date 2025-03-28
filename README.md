@@ -1,6 +1,6 @@
 # Golang - CRUD API
 
-This repository serves as a learning platform for Go programming language, specifically focused on building a CRUD API with PostgreSQL database integration.
+This repository serves as a learning platform for the Go programming language, specifically focused on building a CRUD API with PostgreSQL database integration.
 
 ## Project Overview
 
@@ -25,18 +25,20 @@ The project implements a RESTful API for managing a simple resource (users) with
 
 ## Getting Started
 
+
 1. Clone the repository
 ```bash
 git clone https://github.com/petarzarkov/golang-api.git goapi
 cd goapi
 ```
-
 2. Install dependencies
 ```bash
 go mod download
 ```
-
 3. Run the application
+- edit the `.env` if you need to change ports for the service or the db
+- `docker-compose up` to start the db
+- start the service:
 ```bash
 go run cmd/api/main.go
 ```
