@@ -10,7 +10,7 @@ import (
 
 type User struct {
 	ID        uuid.UUID `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
-	Email     string    `json:"email" validate:"required,email"`
+	Email     string    `gorm:"unique" json:"email" validate:"required,email"`
 	Password  string    `json:"-"`
 	Name      string    `json:"name" validate:"required,min=2,max=100"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -19,14 +19,14 @@ type User struct {
 }
 
 type CreateUserRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8"`
+	Email    string `json:"email" validate:"required,email" example:"test@test.com"`
+	Password string `json:"password" validate:"required,min=8" example:"password"`
 	Name     string `json:"name" validate:"required,min=2,max=100"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Email    string `json:"email" validate:"required,email" example:"test@test.com"`
+	Password string `json:"password" validate:"required" example:"password"`
 }
 
 type UserIdPath struct {

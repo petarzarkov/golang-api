@@ -18,6 +18,7 @@ import (
 	"github.com/swaggest/openapi-go/openapi31"
 	"github.com/swaggest/rest/nethttp"
 	"github.com/swaggest/rest/web"
+	swg "github.com/swaggest/swgui"
 	swgui "github.com/swaggest/swgui/v5emb"
 	"github.com/swaggest/usecase"
 	"github.com/swaggest/usecase/status"
@@ -50,7 +51,7 @@ func main() {
 		middleware.Logger,
 		middleware.Recoverer,
 		middleware.RealIP,
-		nethttp.HTTPBearerSecurityMiddleware(s.OpenAPICollector, "Bearer", "JWT token", "jwt"),
+		nethttp.HTTPBearerSecurityMiddleware(s.OpenAPICollector, "bearerAuth", "JWT token", "JWT"),
 		middleware.Timeout(60 * time.Second),
 	)
 
@@ -79,9 +80,22 @@ func main() {
 		return u
 	}())
 
-	// Serve Swagger UI
-	s.Docs("/api", swgui.New)
 
+	// Serve Swagger UI
+	s.Docs("/api", swgui.NewWithConfig(swg.Config{
+		ShowTopBar: false,
+		SettingsUI: map[string]string{
+			"persistAuthorization": "true",
+			// Auto auth on login in Swagger UI
+			"responseInterceptor": `function (response) {
+				if (response.ok && response?.url?.includes("users/login")) {
+					window.ui.preauthorizeApiKey("bearerAuth", response.body.access_token);
+				}
+				
+				return response;
+			}`,
+		},
+	}))
 
 	// Handle unhandled routes, eventually serve static content here
 	s.Mount("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
