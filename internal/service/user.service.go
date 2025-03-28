@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
+	"github.com/petarzarkov/go-learning/api/middleware"
+	"github.com/petarzarkov/go-learning/config"
 	"github.com/petarzarkov/go-learning/internal/models"
 	"github.com/petarzarkov/go-learning/internal/repository"
 	"gorm.io/gorm"
@@ -15,12 +16,13 @@ import (
 
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrUserExists        = errors.New("user already exists")
+	ErrUserExists         = errors.New("user already exists")
 )
 
 type UserService interface {
 	Register(ctx context.Context, req *models.CreateUserRequest) (*models.User, error)
 	Login(ctx context.Context, req *models.LoginRequest) (*models.TokenResponse, error)
+	RefreshToken(ctx context.Context, req *models.RefreshTokenRequest) (*models.TokenResponse, error)
 	GetUser(ctx context.Context, id string) (*models.User, error)
 	UpdateUser(ctx context.Context, id string, user *models.User) error
 	DeleteUser(ctx context.Context, id string) error
@@ -29,18 +31,18 @@ type UserService interface {
 
 type userService struct {
 	repo      *repository.GormRepository[models.User]
-	jwtSecret string
+	JWTConfig config.JWTConfig
 }
 
-func NewUserService(repo *repository.GormRepository[models.User], jwtSecret string) UserService {
+func NewUserService(repo *repository.GormRepository[models.User], JWTConfig config.JWTConfig) UserService {
 	return &userService{
-		repo: repo,
-		jwtSecret: jwtSecret,
+		repo:      repo,
+		JWTConfig: JWTConfig,
 	}
 }
 
 func (s *userService) Register(ctx context.Context, req *models.CreateUserRequest) (*models.User, error) {
-	// Check if user exists	
+	// Check if user exists
 	existingUser, err := s.repo.Exists(map[string]any{"email": req.Email})
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Printf("Error checking if user exists: %v", err)
@@ -71,7 +73,6 @@ func (s *userService) Register(ctx context.Context, req *models.CreateUserReques
 	return user, nil
 }
 
-
 func (s *userService) Login(ctx context.Context, req *models.LoginRequest) (*models.TokenResponse, error) {
 	var user *models.User
 	user, err := s.repo.Get(map[string]any{"email": req.Email})
@@ -86,35 +87,66 @@ func (s *userService) Login(ctx context.Context, req *models.LoginRequest) (*mod
 		return nil, ErrInvalidCredentials
 	}
 
-	// Generate JWT token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": user.ID,
-		"email":   user.Email,
-		"exp":     time.Now().Add(time.Hour).Unix(),
-	})
-
-	tokenString, err := token.SignedString([]byte(s.jwtSecret))
+	token, err := GenerateJWT(s.JWTConfig, user)
 	if err != nil {
 		return nil, err
 	}
 
-	// Generate refresh token
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": user.ID,
-		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
+	return token, nil
+}
+
+func (s *userService) RefreshToken(ctx context.Context, req *models.RefreshTokenRequest) (*models.TokenResponse, error) {
+	accessTokenUserId, ok := middleware.GetUserID(ctx)
+	if !ok {
+		return nil, errors.New("Unauthorized")
+	}
+
+	token, err := jwt.Parse(req.RefreshToken, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("Invalid signing method")
+		}
+		return []byte(s.JWTConfig.Secret), nil
 	})
 
-	refreshTokenString, err := refreshToken.SignedString([]byte(s.jwtSecret))
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
+
+	if !token.Valid {
+		return nil, errors.New("Invalid refresh token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("Invalid refresh token claims")
+	}
+
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		return nil, errors.New("Invalid user ID in refresh token")
+	}
+
+	// Verify Refresh Token Belongs to User
+	if accessTokenUserId != userID {
+		return nil, errors.New("Refresh token does not belong to you")
+	}
+
+	// Get the user from the database
+	user, err := s.repo.GetByID(userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrInvalidCredentials
+		}
+
+		return nil, err
+	}
+
+	newToken, err := GenerateJWT(s.JWTConfig, user)
 	if err != nil {
 		return nil, err
 	}
 
-	return &models.TokenResponse{
-		AccessToken:  tokenString,
-		RefreshToken: refreshTokenString,
-		TokenType:    "Bearer",
-		ExpiresIn:    3600, // 1 hour in seconds
-	}, nil
+	return newToken, nil
 }
 
 func (s *userService) GetUser(ctx context.Context, id string) (*models.User, error) {
@@ -127,7 +159,6 @@ func (s *userService) GetUser(ctx context.Context, id string) (*models.User, err
 }
 
 func (s *userService) UpdateUser(ctx context.Context, id string, user *models.User) error {
-	user.ID = uuid.MustParse(id) // Ensure the ID matches
 	// Hash password
 	if err := user.HashPassword(user.Password); err != nil {
 		return err
@@ -146,4 +177,36 @@ func (s *userService) ListUsers(ctx context.Context, limit, offset int) ([]*mode
 		return nil, err
 	}
 	return users, nil
-} 
+}
+
+func GenerateJWT(JWTConfig config.JWTConfig, user *models.User) (*models.TokenResponse, error) {
+	// Generate JWT token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": user.ID,
+		"email":   user.Email,
+		"exp":     time.Now().Add(JWTConfig.AccessExpiry).Unix(),
+	})
+
+	tokenString, err := token.SignedString([]byte(JWTConfig.Secret))
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate refresh token
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": user.ID,
+		"exp":     time.Now().Add(JWTConfig.RefreshExpiry).Unix(),
+	})
+
+	refreshTokenString, err := refreshToken.SignedString([]byte(JWTConfig.Secret))
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.TokenResponse{
+		AccessToken:  tokenString,
+		RefreshToken: refreshTokenString,
+		TokenType:    "Bearer",
+		ExpiresIn:    3600, // 1 hour in seconds
+	}, nil
+}

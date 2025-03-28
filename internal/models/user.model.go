@@ -3,46 +3,49 @@ package models
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type User struct {
-	ID        uuid.UUID `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
-	Email     string    `gorm:"unique" json:"email" validate:"required,email"`
-	Password  string    `json:"-"`
-	Name      string    `json:"name" validate:"required,min=2,max=100"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time	`json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"deletedAt"`
-}
-
-type CreateUserRequest struct {
-	Email    string `json:"email" validate:"required,email" example:"test@test.com"`
-	Password string `json:"password" validate:"required,min=8" example:"password"`
-	Name     string `json:"name" validate:"required,min=2,max=100"`
+	ID        string         `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id" format:"uuid"`
+	Email     string         `gorm:"unique" json:"email" format:"email" required:"true"`
+	Password  string         `json:"-" required:"true"`
+	Name      string         `json:"name" required:"true" minLength:"2" maxLength:"100"`
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `gorm:"index" type:"string" format:"date-time" nullable:"true" json:"deletedAt"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email" example:"test@test.com"`
-	Password string `json:"password" validate:"required" example:"password"`
+	Email    string `json:"email" format:"email" required:"true" example:"test@test.com"`
+	Password string `json:"password" required:"true" minLength:"8" example:"password"`
+}
+
+type CreateUserRequest struct {
+	Email    string `json:"email" format:"email" example:"test@test.com" required:"true"`
+	Password string `json:"password" minLength:"8" example:"password" required:"true"`
+	Name     string `json:"name" minLength:"2" maxLength:"100" required:"true"`
 }
 
 type UserIdPath struct {
-	ID string `path:"id" validate:"required" additionalProperties:"false"`
+	ID string `path:"id" format:"uuid" example:"13035584-4a80-4811-9f81-a5648564d40b" required:"true" additionalProperties:"false"`
 }
 
 type UpdateUserInput struct {
 	UserIdPath
-	Email string `json:"email" validate:"omitempty,email"`
-	Password string `json:"password" validate:"omitempty,min=8"`
-	Name     string `json:"name" validate:"omitempty,min=2,max=100"`
+	Email    string `json:"email" format:"email" example:"test@test.com"`
+	Password string `json:"password" minLength:"8" example:"password"`
+	Name     string `json:"name" minLength:"2" maxLength:"100"`
 }
 
 type ListUsersQuery struct {
-	Limit  int `query:"limit" default:"10" validate:"min=1"`
-	Offset int `query:"offset" default:"0" validate:"min=0"`
+	Limit  int `query:"limit" default:"10" minimum:"1"`
+	Offset int `query:"offset" default:"0" minimum:"0"`
+}
+
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" required:"true"`
 }
 
 type TokenResponse struct {
@@ -65,4 +68,4 @@ func (u *User) HashPassword(password string) error {
 // CheckPassword compares the password with its hash
 func (u *User) CheckPassword(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
-} 
+}

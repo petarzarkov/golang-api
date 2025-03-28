@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/petarzarkov/go-learning/api/routers"
 	"github.com/petarzarkov/go-learning/config"
 	"github.com/petarzarkov/go-learning/internal/models"
@@ -23,7 +23,6 @@ import (
 	"github.com/swaggest/usecase"
 	"github.com/swaggest/usecase/status"
 )
-
 
 func main() {
 	s := web.NewService(openapi31.NewReflector())
@@ -46,16 +45,16 @@ func main() {
 	// Migrate the schema
 	db.AutoMigrate(&models.User{})
 
-	s.Use(
+	s.Wrap(
 		middleware.RequestID,
+		middleware.RealIP,
 		middleware.Logger,
 		middleware.Recoverer,
-		middleware.RealIP,
 		nethttp.HTTPBearerSecurityMiddleware(s.OpenAPICollector, "bearerAuth", "JWT token", "JWT"),
-		middleware.Timeout(60 * time.Second),
+		middleware.Timeout(60*time.Second),
 	)
 
-	s.Route("/api/v1/users", routers.UsersRouter(s.OpenAPICollector, db, cfg.JWT.Secret))
+	s.Route("/api/v1/users", routers.UsersRouter(s.OpenAPICollector, db, cfg.JWT))
 	s.Wrap(
 		nethttp.OpenAPIAnnotationsMiddleware(s.OpenAPICollector, func(oc openapi.OperationContext) error {
 			oc.SetTags(append(oc.Tags(), "/service")...)
@@ -79,7 +78,6 @@ func main() {
 		u.SetDescription("Checks service health")
 		return u
 	}())
-
 
 	// Serve Swagger UI
 	s.Docs("/api", swgui.NewWithConfig(swg.Config{
@@ -111,7 +109,7 @@ func main() {
 
 	// Start the server
 	log.Println(fmt.Sprintf("Starting server at http://localhost:%s/api", cfg.Server.Port))
-	
+
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", cfg.Server.Port), s); err != nil {
 		log.Fatal(err)
 	}

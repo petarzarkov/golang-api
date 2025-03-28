@@ -2,11 +2,13 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/petarzarkov/go-learning/config"
 )
 
 type contextKey string
@@ -16,7 +18,9 @@ const (
 )
 
 type AuthConfig struct {
-	JWTSecret string
+	JWTConfig config.JWTConfig
+	// Auth but passthrough expired tokens so user can refresh a token
+	PassthroughExpiredToken bool
 }
 
 func Auth(cfg AuthConfig) func(next http.Handler) http.Handler {
@@ -37,17 +41,19 @@ func Auth(cfg AuthConfig) func(next http.Handler) http.Handler {
 			tokenString := bearerToken[1]
 			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+					return nil, fmt.Errorf("Invalid signing method: %v", token.Header["alg"])
 				}
-				return []byte(cfg.JWTSecret), nil
+				return []byte(cfg.JWTConfig.Secret), nil
 			})
 
-			if err != nil {
-				http.Error(w, "Invalid token", http.StatusUnauthorized)
+			var passthrough bool = err != nil && (errors.Is(err, jwt.ErrTokenExpired) && cfg.PassthroughExpiredToken)
+
+			if err != nil && !passthrough {
+				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return
 			}
 
-			if !token.Valid {
+			if !token.Valid && !passthrough {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}

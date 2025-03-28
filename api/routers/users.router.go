@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/petarzarkov/go-learning/api/handlers"
 	customMiddleware "github.com/petarzarkov/go-learning/api/middleware"
+	"github.com/petarzarkov/go-learning/config"
 	"github.com/petarzarkov/go-learning/internal/models"
 	"github.com/petarzarkov/go-learning/internal/repository"
 	"github.com/petarzarkov/go-learning/internal/service"
@@ -16,9 +17,9 @@ import (
 	"gorm.io/gorm"
 )
 
-func UsersRouter(collector *oapi.Collector, db *gorm.DB, jwtSecret string) func (r chi.Router) {
+func UsersRouter(collector *oapi.Collector, db *gorm.DB, jwtConfig config.JWTConfig) func(r chi.Router) {
 	// Initialize services
-	userService := service.NewUserService(repository.NewGormRepository[models.User](db), jwtSecret)
+	userService := service.NewUserService(repository.NewGormRepository[models.User](db), jwtConfig)
 	// Create a test user to have something to work with
 	userService.Register(context.Background(), &models.CreateUserRequest{Email: "test@test.com", Password: "password", Name: "Test User"})
 
@@ -36,13 +37,19 @@ func UsersRouter(collector *oapi.Collector, db *gorm.DB, jwtSecret string) func 
 		r.Group(func(r chi.Router) {
 			r.Method(http.MethodPost, "/register", nethttp.NewHandler(userHandler.Register()))
 			r.Method(http.MethodPost, "/login", nethttp.NewHandler(userHandler.Login()))
+			r.With(
+				customMiddleware.Auth(customMiddleware.AuthConfig{
+					JWTConfig:               jwtConfig,
+					PassthroughExpiredToken: true,
+				}),
+			).Method(http.MethodPost, "/refreshToken", nethttp.NewHandler(userHandler.RefreshToken()))
 		})
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(
 				customMiddleware.Auth(customMiddleware.AuthConfig{
-					JWTSecret: jwtSecret,
+					JWTConfig: jwtConfig,
 				}),
 			)
 
