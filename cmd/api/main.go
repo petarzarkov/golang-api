@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/petarzarkov/go-learning/api/routers"
 	"github.com/petarzarkov/go-learning/config"
@@ -54,36 +55,48 @@ func main() {
 		middleware.Timeout(60*time.Second),
 	)
 
-	s.Route("/api/v1/users", routers.UsersRouter(s.OpenAPICollector, db, cfg.JWT))
-	s.Wrap(
-		nethttp.OpenAPIAnnotationsMiddleware(s.OpenAPICollector, func(oc openapi.OperationContext) error {
-			oc.SetTags(append(oc.Tags(), "/service")...)
-			return nil
-		}),
-	)
+	s.Route("/api/v1", func(r chi.Router) {
+		r.Use(
+			nethttp.OpenAPIAnnotationsMiddleware(s.OpenAPICollector, func(oc openapi.OperationContext) error {
+				oc.SetTags(append(oc.Tags(), "/api/v1")...)
+				return nil
+			}),
+		)
+		r.Group(routers.UsersRouter(db, cfg.JWT))
+	})
 
-	s.Get("/service/health", func() usecase.Interactor {
-		u := usecase.NewInteractor(func(ctx context.Context, input, output *struct {
-			Status string `json:"status"`
-		}) error {
-			output.Status = "ok"
-			var result int
-			db.Raw("SELECT 1 + 1").Scan(&result)
-			if result != 2 {
-				return status.Wrap(errors.New("DB error"), status.Internal)
-			}
-			return nil
-		})
-		u.SetTitle("Service health")
-		u.SetDescription("Checks service health")
-		return u
-	}())
+	s.Route("/service", func(r chi.Router) {
+		r.Use(
+			nethttp.OpenAPIAnnotationsMiddleware(s.OpenAPICollector, func(oc openapi.OperationContext) error {
+				oc.SetTags(append(oc.Tags(), "/service")...)
+				return nil
+			}),
+		)
+		r.Method(http.MethodGet, "/health", nethttp.NewHandler(func() usecase.Interactor {
+			u := usecase.NewInteractor(func(ctx context.Context, input, output *struct {
+				Status string `json:"status"`
+			}) error {
+				output.Status = "ok"
+				var result int
+				db.Raw("SELECT 1 + 1").Scan(&result)
+				if result != 2 {
+					return status.Wrap(errors.New("DB error"), status.Internal)
+				}
+				return nil
+			})
+			u.SetTitle("Service health")
+			u.SetDescription("Checks service health")
+			return u
+		}()))
+	})
 
 	// Serve Swagger UI
 	s.Docs("/api", swgui.NewWithConfig(swg.Config{
 		ShowTopBar: false,
 		SettingsUI: map[string]string{
-			"persistAuthorization": "true",
+			"persistAuthorization":   "true",
+			"displayRequestDuration": "true",
+			"tagsSorter":             "\"alpha\"",
 			// Auto auth on login in Swagger UI
 			"responseInterceptor": `function (response) {
 				if (response.ok && response?.url?.includes("users/login")) {

@@ -2,6 +2,16 @@ package repository
 
 import "gorm.io/gorm"
 
+type Repository[T any] interface {
+	Create(dto *T) error
+	GetByID(id string) (*T, error)
+	GetAll(limit, offset int) ([]*T, error)
+	Update(dto *T) error
+	Delete(id string) error
+	Get(filter map[string]any) (*T, error)
+	Exists(filter map[string]any) (bool, error)
+}
+
 type GormRepository[T any] struct {
     db *gorm.DB
 }

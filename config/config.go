@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -83,12 +82,3 @@ func getDurationEnv(key string, defaultValue time.Duration) time.Duration {
 	}
 	return defaultValue
 }
-
-func getBoolEnv(key string, defaultValue bool) bool {
-	if value := os.Getenv(key); value != "" {
-		if b, err := strconv.ParseBool(value); err == nil {
-			return b
-		}
-	}
-	return defaultValue
-} 

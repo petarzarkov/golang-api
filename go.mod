@@ -12,11 +12,14 @@ require (
 )
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v3 v3.1.0 // indirect
 	github.com/swaggest/form/v5 v5.1.1 // indirect
 	github.com/vearutop/statigz v1.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (
@@ -26,7 +29,7 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/stretchr/testify v1.9.0 // indirect
+	github.com/stretchr/testify v1.9.0
 	github.com/swaggest/jsonschema-go v0.3.73 // indirect
 	github.com/swaggest/openapi-go v0.2.57
 	github.com/swaggest/refl v1.3.1 // indirect
