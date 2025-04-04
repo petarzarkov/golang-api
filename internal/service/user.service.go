@@ -30,11 +30,11 @@ type UserService interface {
 }
 
 type userService struct {
-	repo      repository.Repository[models.User]
+	repo      repository.GenericRepo[models.User]
 	JWTConfig config.JWTConfig
 }
 
-func NewUserService(repo repository.Repository[models.User], JWTConfig config.JWTConfig) UserService {
+func NewUserService(repo repository.GenericRepo[models.User], JWTConfig config.JWTConfig) UserService {
 	return &userService{
 		repo:      repo,
 		JWTConfig: JWTConfig,
